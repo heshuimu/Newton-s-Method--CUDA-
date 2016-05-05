@@ -116,7 +116,7 @@ __global__ void Residual_add(double* v, double* sum, const int dim, const int of
 
 int main(int argc, char** argv)
 {
-	int blocks = ___PROBLEM_SIZE___, threads = 1;
+	int blocks = 1, threads = 1;
 	double initial_guess = 0;
 	
 	if(argc > 1)
@@ -176,9 +176,9 @@ int main(int argc, char** argv)
 			for (int i = 0; i < ___PROBLEM_SIZE___; i++) {
 				std::cout << std::setw(12) << B[i];
 			}
-			printf("\n:L & D in one matrix: \n");
+			printf("\nL & D in one matrix: \n");
 			MatrixUtility::PrintVectorAsMatrix(A_t, ___PROBLEM_SIZE___, ___PROBLEM_SIZE___);
-			printf("\n:Step of X for next iteration: \n");
+			printf("\nStep of X for next iteration: \n");
 			MatrixUtility::PrintVector(X_res, ___PROBLEM_SIZE___);
 		}
 
@@ -196,11 +196,13 @@ int main(int argc, char** argv)
 	
 	gettimeofday(&end, NULL);
 	
-	printf("\nRuntime is %f for %d blocks and %d threads for a problem size of %d. Initial guess is that x_i = %f\n", (end.tv_sec*1000 + end.tv_usec/1000) - (start.tv_sec*1000 + start.tv_usec/1000), blocks, threads, ___PROBLEM_SIZE___, initial_guess);
+	printf("\nRuntime is %d ms for %d blocks and %d threads for a problem size of %d. Initial guess is that x_i = %f\n", (end.tv_sec*1000 + end.tv_usec/1000) - (start.tv_sec*1000 + start.tv_usec/1000), blocks, threads, ___PROBLEM_SIZE___, initial_guess);
 	printf("\nFinal X:\n");
 	for (int i = 0; i < ___PROBLEM_SIZE___; i++) {
 		std::cout << std::setw(12) << X[i];
 	}
+	
+	printf("\n\n");
 	
 	cudaDeviceReset();
 	
@@ -216,7 +218,8 @@ void GetABForCalculation(double* X, double* A, double* B, int dim, int blocks, i
 	cudaMalloc(&A_dev, sizeof(double) * dim * dim);
 	cudaMalloc(&B_dev, sizeof(double) * dim);
 	cudaMalloc(&X_dev, sizeof(double) * dim);
-
+	
+	cudaMemcpy(A_dev, A, sizeof(double) * dim * dim, cudaMemcpyHostToDevice);
 	cudaMemcpy(X_dev, X, sizeof(double) * dim, cudaMemcpyHostToDevice);
 
 	int offset = 0;
