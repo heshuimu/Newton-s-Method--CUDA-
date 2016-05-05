@@ -1,5 +1,8 @@
 #include <stdio.h>
 #include <cmath>
+#include <stdlib.h>
+#include <ctime>
+#include <sys/time.h>
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 #include "MatrixUtility.h"
@@ -113,6 +116,17 @@ __global__ void Residual_add(double* v, double* sum, const int dim, const int of
 
 int main(int argc, char** argv)
 {
+	int blocks = ___PROBLEM_SIZE___, threads = 1;
+	double initial_guess = 0;
+	
+	if(argc > 1)
+		___PROBLEM_SIZE___ = atoi(argv[1]);
+	if(argc > 2)
+		blocks = atoi(argv[2]);
+	if(argc > 3)
+		threads = atoi(argv[3]);
+	if(argc > 4)
+		initial_guess = atof(argv[4]);
 
 	double* A = MatrixUtility::InitializeEmptyVector(___PROBLEM_SIZE___ * ___PROBLEM_SIZE___);
 	double* A_res = MatrixUtility::InitializeEmptyVector(___PROBLEM_SIZE___ * ___PROBLEM_SIZE___);
@@ -125,14 +139,18 @@ int main(int argc, char** argv)
 
 	for (int i = 0; i < ___PROBLEM_SIZE___; i++) 
 	{
-		X[i] = i + 1;
+		X[i] = initial_guess;
 	}
+	
+	timeval start, end;
 
 	double residual = 0;
+	
+	gettimeofday(&start, NULL);
 
 	do
 	{
-		GetABForCalculation(X, A, B, ___PROBLEM_SIZE___, ___PROBLEM_SIZE___, 1);
+		GetABForCalculation(X, A, B, ___PROBLEM_SIZE___, blocks, threads);
 
 		LUDecomposition(A, A_res, ___PROBLEM_SIZE___);
 
@@ -148,21 +166,25 @@ int main(int argc, char** argv)
 
 		if (___PROBLEM_SIZE___ <= 30)
 		{
-			MatrixUtility::PrintVectorAsMatrix(A_t, ___PROBLEM_SIZE___, ___PROBLEM_SIZE___);
+			printf("\nX:\n");
+			for (int i = 0; i < ___PROBLEM_SIZE___; i++) {
+				std::cout << std::setw(12) << X[i];
+			}
+			printf("\nA:\n");
 			MatrixUtility::PrintVectorAsMatrix(A, ___PROBLEM_SIZE___, ___PROBLEM_SIZE___);
-			MatrixUtility::PrintVector(B, ___PROBLEM_SIZE___);
-			MatrixUtility::PrintVectorAsMatrix(A_res, ___PROBLEM_SIZE___, ___PROBLEM_SIZE___);
+			printf("\nB:\n");
+			for (int i = 0; i < ___PROBLEM_SIZE___; i++) {
+				std::cout << std::setw(12) << B[i];
+			}
+			printf("\n:L & D in one matrix: \n");
+			MatrixUtility::PrintVectorAsMatrix(A_t, ___PROBLEM_SIZE___, ___PROBLEM_SIZE___);
+			printf("\n:Step of X for next iteration: \n");
 			MatrixUtility::PrintVector(X_res, ___PROBLEM_SIZE___);
 		}
 
 		for (int i = 0; i < ___PROBLEM_SIZE___; i++)
 		{
 			X[i] += X_res[i];
-		}
-
-		printf("\nX:\n");
-		for (int i = 0; i < ___PROBLEM_SIZE___; i++) {
-			std::cout << std::setw(12) << X[i];
 		}
 
 		//device residual method has WOR hazard, fallback to serial
@@ -172,9 +194,17 @@ int main(int argc, char** argv)
 
 	} while (residual > ___TOLERANCE___);
 	
+	gettimeofday(&end, NULL);
+	
+	printf("\nRuntime is %f for %d blocks and %d threads for a problem size of %d. Initial guess is that x_i = %f\n", (end.tv_sec*1000 + end.tv_usec/1000) - (start.tv_sec*1000 + start.tv_usec/1000), blocks, threads, ___PROBLEM_SIZE___, initial_guess);
+	printf("\nFinal X:\n");
+	for (int i = 0; i < ___PROBLEM_SIZE___; i++) {
+		std::cout << std::setw(12) << X[i];
+	}
+	
 	cudaDeviceReset();
-
-    return 0;
+	
+	return 0;
 }
 
 void GetABForCalculation(double* X, double* A, double* B, int dim, int blocks, int threads)
